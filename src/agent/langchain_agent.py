@@ -48,8 +48,8 @@ class CausalAgent:
         """
         # Define tools for causal inference tasks
         class DatasetInfoTool(BaseTool):
-            name = "dataset_info"
-            description = "Get information about the current dataset"
+            name: str = "dataset_info"
+            description: str = "Get information about the current dataset"
             
             def _run(self, query: str) -> str:
                 if 'dataset' not in globals() or globals()['dataset'] is None:
@@ -65,8 +65,8 @@ class CausalAgent:
                 return str(info)
         
         class CausalDiscoveryTool(BaseTool):
-            name = "causal_discovery"
-            description = "Discover causal structure in the dataset"
+            name: str = "causal_discovery"
+            description: str = "Discover causal structure in the dataset"
             
             def _run(self, query: str) -> str:
                 if 'dataset' not in globals() or globals()['dataset'] is None:
@@ -83,8 +83,8 @@ class CausalAgent:
                     return f"Error during causal discovery: {str(e)}"
         
         class CausalEffectTool(BaseTool):
-            name = "causal_effect"
-            description = "Estimate causal effect between treatment and outcome variables"
+            name: str = "causal_effect"
+            description: str = "Estimate causal effect between treatment and outcome variables"
             
             def _run(self, query: str) -> str:
                 if 'dataset' not in globals() or globals()['dataset'] is None:
@@ -113,8 +113,8 @@ class CausalAgent:
                     return f"Error estimating causal effect: {str(e)}"
         
         class ExplainCausalGraphTool(BaseTool):
-            name = "explain_causal_graph"
-            description = "Explain the discovered causal graph"
+            name: str = "explain_causal_graph"
+            description: str = "Explain the discovered causal graph"
             
             def _run(self, query: str) -> str:
                 if 'causal_graph' not in globals() or globals()['causal_graph'] is None:
