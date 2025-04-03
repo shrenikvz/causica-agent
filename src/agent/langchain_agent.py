@@ -4,6 +4,8 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import BaseTool
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import SystemMessage
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 from typing import Dict, Any, List, Optional
 import os
 import sys
@@ -34,11 +36,21 @@ class CausalAgent:
 
         self.model = model
         # Pass the API key to the ChatOpenAI client
-        self.llm = ChatOpenAI(model=model, temperature=0, openai_api_key=openai_api_key)
-        self.memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
+        self.llm = ChatOpenAI(model=model, openai_api_key=openai_api_key)
+        
+        # Updated memory setup
+        self.store: Dict[str, BaseChatMessageHistory] = {} # Store for session histories
+        self.memory = self._get_session_history("default_session") # Get default history
+
         self.tools = self._create_tools()
         self.agent_executor = self._create_agent()
     
+    def _get_session_history(self, session_id: str) -> BaseChatMessageHistory:
+        """Gets or creates a chat history for a given session ID."""
+        if session_id not in self.store:
+            self.store[session_id] = ChatMessageHistory()
+        return self.store[session_id]
+
     def _create_tools(self) -> List[BaseTool]:
         """
         Create tools for the agent to use
@@ -171,20 +183,32 @@ Always explain what you're doing and why, and provide interpretations of results
         
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
         
+        # Updated AgentExecutor initialization to use RunnableWithMessageHistory
+        # Note: This assumes you might want session-specific memory later.
+        # If you ONLY need one global history, the original ConversationBufferMemory was simpler.
+        # However, this pattern is more flexible for multi-user/session scenarios.
+        agent_with_chat_history = RunnableWithMessageHistory(
+            agent, # type: ignore
+            self._get_session_history,
+            input_messages_key="input",
+            history_messages_key="chat_history",
+        )
+
         return AgentExecutor(
-            agent=agent,
+            agent=agent_with_chat_history, # type: ignore
             tools=self.tools,
-            memory=self.memory,
+            # memory is now handled by RunnableWithMessageHistory
             verbose=True,
             handle_parsing_errors=True
         )
     
-    def process_message(self, message: str, dataset: Optional[pd.DataFrame] = None, causal_model: Optional[Any] = None) -> str:
+    def process_message(self, message: str, session_id: str = "default_session", dataset: Optional[pd.DataFrame] = None, causal_model: Optional[Any] = None) -> str:
         """
         Process a user message and return the agent's response
         
         Args:
             message: User's message
+            session_id: Identifier for the conversation session
             dataset: Current dataset (if any)
             causal_model: Current causal model (if any)
             
@@ -196,7 +220,11 @@ Always explain what you're doing and why, and provide interpretations of results
         globals()['causal_model'] = causal_model
         
         try:
-            response = self.agent_executor.invoke({"input": message})
+            # Updated invocation to include config for session_id
+            response = self.agent_executor.invoke(
+                {"input": message},
+                config={"configurable": {"session_id": session_id}}
+            )
             return response["output"]
         except Exception as e:
             return f"I encountered an error while processing your request: {str(e)}"
