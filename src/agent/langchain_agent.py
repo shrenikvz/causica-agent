@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 import os
 import sys
 import pandas as pd
+import streamlit as st  # Import streamlit
 
 # Add parent directory to path to import from other modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -24,8 +25,16 @@ class CausalAgent:
         Args:
             model: OpenAI model to use (default: o3-mini)
         """
+        # Retrieve the API key from Streamlit secrets
+        openai_api_key = st.secrets.get("OPENAI_API_KEY")
+        if not openai_api_key:
+            st.error("OpenAI API key not found in Streamlit secrets. Please add it.")
+            # Optionally, you could raise an exception or handle this case differently
+            return 
+
         self.model = model
-        self.llm = ChatOpenAI(model=model, temperature=0)
+        # Pass the API key to the ChatOpenAI client
+        self.llm = ChatOpenAI(model=model, temperature=0, openai_api_key=openai_api_key)
         self.memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
         self.tools = self._create_tools()
         self.agent_executor = self._create_agent()
